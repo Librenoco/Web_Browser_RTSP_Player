@@ -5,7 +5,6 @@ myPwd=$PWD
 
 # Обновление системы
 apt-get update -y
-apt-get upgrade -y
 
 # Установка необходимых утилит
 apt-get install -y git
@@ -43,9 +42,10 @@ cd "$myPwd"
 rm -R opencv
 rm -R build
 rm -R libhv
+# ----------
 
-# Сборка программы
+# Сборка проги
 cd "$myPwd"
 git clone https://github.com/Librenoco/Web_Browser_RTSP_Player.git
 cd Web_Browser_RTSP_Player/server/
-gcc -O2 -Wl,-rpath,/usr/local/lib worker.cpp main.cpp -o main -I/usr/local/include/opencv4/ -I/usr/local/lib/ -L/usr/local/lib -lstdc++ -lopencv_videoio  -lopencv_highgui -lopencv_video -lopencv_imgcodecs -lopencv_imgproc -lopencv_core -lpthread -lhv
+make
