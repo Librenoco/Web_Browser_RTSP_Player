@@ -12,26 +12,28 @@
 #include <hv/EventLoop.h>
 #include <hv/htime.h>
 #include <hv/hssl.h>
+#include <chrono>
+
 
 class Worker
 {
 public:
-  bool stopThreads = false;
+  bool stopThread = false;
   WebSocketChannelPtr ws;
-  std::vector<std::string> streamFrame;
-  std::thread **threads;
+  std::string streamFrame;
+  std::thread *threadTest;
 
   Worker();
   ~Worker();
-  Worker(WebSocketChannelPtr, std::vector<std::string>);
+  Worker(WebSocketChannelPtr, std::string);
 
   // base64 encoded data
   std::string base64Encode(const unsigned char *, int);
 
   //Запуск камеры в потоке
-  void cameraRun(std::string, std::string, WebSocketChannelPtr);
+  void cameraRun(std::string, WebSocketChannelPtr);
 
   //кодировка и отправка кадра
-  void getFrame(cv::Mat, std::string, WebSocketChannelPtr);
+  void getFrame(cv::Mat, WebSocketChannelPtr);
 };
 #endif // WORKER_H

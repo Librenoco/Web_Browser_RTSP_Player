@@ -7,9 +7,11 @@
 
 int main(void)
 {
+  int i = 0;
   std::string line;
   hv::WebSocketService ws;
   std::vector<Worker *> work;
+  std::vector<WebSocketChannelPtr *> channels;
   std::vector<std::string> myLines;
   //Вывод ошибок в консоль
   cv::utils::logging::setLogLevel(cv::utils::logging::LogLevel::LOG_LEVEL_ERROR);
@@ -27,17 +29,15 @@ int main(void)
     myLines.push_back(line);
   }
 
-  std::vector<std::string> streamFrame;
-  for (size_t i = 0; i < myLines.size(); i++)
-  {
-    streamFrame.push_back(std::to_string(i) + myLines[i]);
-  }
-
   //дейсвия при подключение нового клиента
   ws.onopen = [&](const WebSocketChannelPtr &channel, const HttpRequestPtr &req)
   {
-    std::cout << "\nWebSocketChannel = " << channel;
-    work.push_back(new Worker(channel, streamFrame));
+    std::cout << "\nwork.size = " << work.size() << "\nmyLines.size = " << myLines.size();
+    if (i >= myLines.size())
+      i = 0;
+      std::cout << "\nWebSocketChannelOPEN = " << channel << "; req->path = " << req->path << "; myLines[" << i << "] = " << myLines[i];
+      work.push_back(new Worker(channel, myLines[i]));
+      i++;
   };
 
   //действия после закрытия соединения
@@ -49,6 +49,7 @@ int main(void)
       index++;
       if (it->ws == channel)
       {
+        std::cout << "\nWebSocketChannelCLOSE = " << channel;
         delete it;
         work.erase(work.begin() + index - 1);
       }
@@ -59,7 +60,7 @@ int main(void)
   hv::WebSocketServer server;
   server.registerWebSocketService(&ws);
   server.setPort(25566);
-  server.setThreadNum(4);
+  server.setThreadNum(15);
 
   server.run();
   return 0;

@@ -1,32 +1,18 @@
 #include "worker.h"
 
-Worker::Worker(WebSocketChannelPtr ws, std::vector<std::string> streamFrame)
+Worker::Worker(WebSocketChannelPtr ws, std::string streamFrame)
 {
-  std::string cam;
-  std::string blocNumber;
-  this->stopThreads = false;
-  this->streamFrame = streamFrame;
   this->ws = ws;
-  threads = new std::thread *[this->streamFrame.size()];
-
-  for (int i = 0; i < this->streamFrame.size(); i++)
-  {
-    blocNumber = this->streamFrame[i].substr(0, this->streamFrame[i].find(' ')) + " ";
-    cam = this->streamFrame[i].substr(this->streamFrame[i].find(' '));
-    threads[i] = new std::thread(&Worker::cameraRun, this, blocNumber, cam, ws);
-    threads[i]->detach();
-  }
+  stopThread = false;
+  threadTest = new std::thread (&Worker::cameraRun, this, streamFrame, ws);
+  threadTest->detach();
 }
 
 Worker::~Worker()
 {
-  stopThreads = true;
-
-  for (int i = 0; i < streamFrame.size(); i++)
-  {
-    delete threads[i];
-  }
-  delete threads;
+  stopThread = true;
+  delete threadTest;
+  std::cout << "\nthread stop WS= " << ws;
 }
 
 std::string Worker::base64Encode(const unsigned char *Data, int DataByte)
@@ -74,32 +60,38 @@ std::string Worker::base64Encode(const unsigned char *Data, int DataByte)
   return strEncode;
 }
 
-void Worker::cameraRun(std::string blocNumber, std::string cam, WebSocketChannelPtr ws)
+void Worker::cameraRun(std::string cam, WebSocketChannelPtr ws)
 {
-  std::string url = cam;
-  std::string launch_str = "rtspsrc protocols=udp+tcp location=" + url + " drop-on-latency=true latency=" + "400" + " ! decodebin ! videoconvert ! appsink max-buffers=1 drop=true ! queue";
+  std::string launch_str = "rtspsrc protocols=udp location=" + cam + " drop-on-latency=true latency=" + "200" + " ! decodebin ! videoconvert ! appsink max-buffers=1 drop=true";
   auto cap = cv::VideoCapture(launch_str, cv::CAP_GSTREAMER);
+  sleep(3);
   if (cap.isOpened())
   {
     while (1)
     {
-      if (stopThreads)
+      if (stopThread)
+      {
+        std::cout << "\nthread stop- WS= " << ws;
         return;
+      }
       cv::Mat frame;
       cap >> frame;
-      Worker::getFrame(frame, blocNumber, ws);
+      Worker::getFrame(frame, ws);
     }
   }
   else
   {
-    Worker::cameraRun(blocNumber, cam, ws);
-    sleep(5);
-    if (stopThreads)
+    if (stopThread)
+    {
+      std::cout << "\nthread stop+ WS= " << ws;
       return;
+    }
+    Worker::cameraRun(cam, ws);
+    sleep(1);
   }
 }
 
-void Worker::getFrame(cv::Mat frame, std::string blocNumber, WebSocketChannelPtr ws)
+void Worker::getFrame(cv::Mat frame, WebSocketChannelPtr ws)
 {
   std::vector<uchar> buffer;
   if (!frame.empty())
@@ -108,7 +100,8 @@ void Worker::getFrame(cv::Mat frame, std::string blocNumber, WebSocketChannelPtr
     std::string image = base64Encode(buffer.data(), buffer.size());
     if (ws != nullptr)
     {
-      ws->send(blocNumber + image);
+      ws->send(image);
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
   }
 }
