@@ -1,67 +1,68 @@
-#include <vector>
-#include <string.h>
-#include <fstream>
-#include "worker.h"
-#include <hv/WebSocketServer.h>
 #include <opencv2/core/utils/logger.hpp>
+#include <hv/WebSocketServer.h>
+#include <string.h>
+#include "worker.h"
+#include <fstream>
+#include <vector>
+
+#define PORT 25566
+#define THREAD_NUMBER 10
 
 int main(void)
 {
-  int i = 0;
-  std::string line;
-  hv::WebSocketService ws;
-  std::vector<Worker *> work;
   std::vector<WebSocketChannelPtr *> channels;
-  std::vector<std::string> myLines;
-  //Вывод ошибок в консоль
+  std::vector<std::string> fileLines;
+  std::vector<Worker *> work;
+  hv::WebSocketService ws;
+  std::string line;
+
+  //Смена уровня логирования в OpenCV
   cv::utils::logging::setLogLevel(cv::utils::logging::LogLevel::LOG_LEVEL_ERROR);
 
-  //Считывание камер из файла
+  //Считывание строк с адерсом камер из файла
   std::ifstream fs("camera.conf", std::ios::in);
-  if(!fs)
+  if (!fs.is_open())
   {
     std::cout << "ERROR (fileRead)";
-    return 1;
+    exit(1);
   }
-
   while (std::getline(fs, line))
   {
-    myLines.push_back(line);
+    fileLines.push_back(line);
   }
 
-  //дейсвия при подключение нового клиента
+  //Подключение клиента
+  int camNumber = 0;
   ws.onopen = [&](const WebSocketChannelPtr &channel, const HttpRequestPtr &req)
   {
-    std::cout << "\nwork.size = " << work.size() << "\nmyLines.size = " << myLines.size();
-    if (i >= myLines.size())
-      i = 0;
-      std::cout << "\nWebSocketChannelOPEN = " << channel << "; req->path = " << req->path << "; myLines[" << i << "] = " << myLines[i];
-      work.push_back(new Worker(channel, myLines[i]));
-      i++;
+    if (camNumber >= fileLines.size() - 1)
+      camNumber = 0;
+    std::cout << "\nWebSocketChannel_Open = " << channel << "\nCam[" << camNumber << "] = " << fileLines[camNumber] << "\nwork.size =" << work.size();
+    work.push_back(new Worker(channel, fileLines[camNumber]));
+    camNumber++;
   };
 
-  //действия после закрытия соединения
+  //Отключение клиента
   ws.onclose = [&](const WebSocketChannelPtr &channel)
   {
-    int index = 0;
+    int index = -1;
     for (auto it : work)
     {
       index++;
       if (it->ws == channel)
       {
-        std::cout << "\nWebSocketChannelCLOSE = " << channel;
+        std::cout << "\nWebSocketChannel_Close_START = " << channel;
         delete it;
-        work.erase(work.begin() + index - 1);
+        work.erase(work.begin() + index);
       }
     }
   };
 
-  //создание и запуск сервера
+  //Запуск сервера
   hv::WebSocketServer server;
   server.registerWebSocketService(&ws);
-  server.setPort(25566);
-  server.setThreadNum(15);
+  server.setPort(PORT);
+  server.setThreadNum(THREAD_NUMBER);
 
   server.run();
-  return 0;
 }

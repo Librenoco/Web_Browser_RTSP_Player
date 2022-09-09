@@ -1,18 +1,20 @@
 #include "worker.h"
 
-Worker::Worker(WebSocketChannelPtr ws, std::string streamFrame)
+Worker::Worker(WebSocketChannelPtr ws, std::string cam)
 {
-  this->ws = ws;
+  launchStr = "rtspsrc protocols=udp location=" + cam + " drop-on-latency=true latency=" + "200" + " ! decodebin ! videoconvert ! appsink max-buffers=1 drop=true";
   stopThread = false;
-  threadTest = new std::thread (&Worker::cameraRun, this, streamFrame, ws);
-  threadTest->detach();
+  this->ws = ws;
+  //Создание потока для камеры
+  threadWorker = new std::thread (&Worker::cameraRun, this);
+  threadWorker->detach();
 }
 
 Worker::~Worker()
 {
   stopThread = true;
-  delete threadTest;
-  std::cout << "\nthread stop WS= " << ws;
+  std::cout << "\nWebSocketChannel_CLOSE_OK = " << ws;
+  delete threadWorker;
 }
 
 std::string Worker::base64Encode(const unsigned char *Data, int DataByte)
@@ -60,38 +62,30 @@ std::string Worker::base64Encode(const unsigned char *Data, int DataByte)
   return strEncode;
 }
 
-void Worker::cameraRun(std::string cam, WebSocketChannelPtr ws)
+void Worker::cameraRun()
 {
-  std::string launch_str = "rtspsrc protocols=udp location=" + cam + " drop-on-latency=true latency=" + "200" + " ! decodebin ! videoconvert ! appsink max-buffers=1 drop=true";
-  auto cap = cv::VideoCapture(launch_str, cv::CAP_GSTREAMER);
-  sleep(3);
+  auto cap = cv::VideoCapture(launchStr, cv::CAP_GSTREAMER);
   if (cap.isOpened())
   {
-    while (1)
+    while (true)
     {
       if (stopThread)
-      {
-        std::cout << "\nthread stop- WS= " << ws;
         return;
-      }
       cv::Mat frame;
       cap >> frame;
-      Worker::getFrame(frame, ws);
+      Worker::sendFrame(frame, ws);
     }
   }
   else
   {
     if (stopThread)
-    {
-      std::cout << "\nthread stop+ WS= " << ws;
       return;
-    }
-    Worker::cameraRun(cam, ws);
-    sleep(1);
+    Worker::cameraRun();
+    std::this_thread::sleep_for(std::chrono::seconds(5));
   }
 }
 
-void Worker::getFrame(cv::Mat frame, WebSocketChannelPtr ws)
+void Worker::sendFrame(cv::Mat frame, WebSocketChannelPtr ws)
 {
   std::vector<uchar> buffer;
   if (!frame.empty())
@@ -101,7 +95,7 @@ void Worker::getFrame(cv::Mat frame, WebSocketChannelPtr ws)
     if (ws != nullptr)
     {
       ws->send(image);
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
   }
 }

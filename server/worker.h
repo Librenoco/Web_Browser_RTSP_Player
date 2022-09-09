@@ -1,17 +1,17 @@
 #ifndef WORKER_H
 #define WORKER_H
-#include <string>
-#include <thread>
-#include <opencv4/opencv2/core.hpp>
 #include <opencv4/opencv2/core/mat.hpp>
-#include <opencv4/opencv2/video.hpp>
-#include <opencv4/opencv2/highgui.hpp>
 #include <opencv4/opencv2/videoio.hpp>
+#include <opencv4/opencv2/highgui.hpp>
 #include <opencv4/opencv2/opencv.hpp>
+#include <opencv4/opencv2/video.hpp>
+#include <opencv4/opencv2/core.hpp>
 #include <hv/WebSocketServer.h>
 #include <hv/EventLoop.h>
 #include <hv/htime.h>
 #include <hv/hssl.h>
+#include <string>
+#include <thread>
 #include <chrono>
 
 
@@ -19,21 +19,21 @@ class Worker
 {
 public:
   bool stopThread = false;
-  WebSocketChannelPtr ws;
+  std::thread *threadWorker;
   std::string streamFrame;
-  std::thread *threadTest;
+  std::string launchStr;
+  WebSocketChannelPtr ws;
 
-  Worker();
-  ~Worker();
   Worker(WebSocketChannelPtr, std::string);
+  ~Worker();
 
-  // base64 encoded data
+  //Кодировка данных в base64
   std::string base64Encode(const unsigned char *, int);
 
-  //Запуск камеры в потоке
-  void cameraRun(std::string, WebSocketChannelPtr);
+  //Подключение к камере
+  void cameraRun();
 
-  //кодировка и отправка кадра
-  void getFrame(cv::Mat, WebSocketChannelPtr);
+  //Отправка кадра
+  void sendFrame(cv::Mat, WebSocketChannelPtr);
 };
 #endif // WORKER_H
