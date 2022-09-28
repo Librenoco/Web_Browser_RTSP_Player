@@ -1,19 +1,41 @@
 #include "worker.h"
 
+#define NAME_SIZE 25
+
 Worker::Worker(WebSocketChannelPtr ws, std::string cam)
 {
   launchStr = "rtspsrc protocols=udp location=" + cam + " drop-on-latency=true latency=" + "200" + " ! decodebin ! videoconvert ! appsink max-buffers=1 drop=true";
   stopThread = false;
   this->ws = ws;
   //Создание потока для камеры
-  threadWorker = new std::thread (&Worker::cameraRun, this);
-  threadWorker->detach();
+  threadWorker = new std::thread(&Worker::cameraRun, this);
+}
+
+Worker::Worker(std::string camAndName)
+{
+  char buffer[NAME_SIZE];
+  for (size_t i = camAndName.size(); i > 0; i--)
+  {
+    if (camAndName[i] == ' ')
+    {
+      camAndName.copy(buffer, camAndName.size() - i - 1, i + 1);
+      fileName = buffer;
+      camAndName.resize(i);
+      break;
+    }
+  }
+  launchStr = "rtspsrc protocols=udp location=" + camAndName + " drop-on-latency=true latency=" + "200" + " ! decodebin ! videoconvert ! appsink max-buffers=1 drop=true";
+  stopThread = false;
+  ws = nullptr;
+  threadWorker = new std::thread(&Worker::cameraFile, this);
 }
 
 Worker::~Worker()
 {
   stopThread = true;
-  std::cout << "\nWebSocketChannel_CLOSE_OK = " << ws;
+  threadWorker->join();
+  std::cout << "\nWebSocketChannel_CLOSE_OK = " << ws << std::endl;
+  ws = nullptr;
   delete threadWorker;
 }
 
@@ -67,6 +89,7 @@ void Worker::cameraRun()
   auto cap = cv::VideoCapture(launchStr, cv::CAP_GSTREAMER);
   if (cap.isOpened())
   {
+    std::cout << "\nCAP OPEN" << std::endl;
     while (true)
     {
       if (stopThread)
@@ -75,13 +98,6 @@ void Worker::cameraRun()
       cap >> frame;
       Worker::sendFrame(frame, ws);
     }
-  }
-  else
-  {
-    if (stopThread)
-      return;
-    Worker::cameraRun();
-    std::this_thread::sleep_for(std::chrono::seconds(5));
   }
 }
 
@@ -94,8 +110,32 @@ void Worker::sendFrame(cv::Mat frame, WebSocketChannelPtr ws)
     std::string image = base64Encode(buffer.data(), buffer.size());
     if (ws != nullptr)
     {
+      if (ws->isClosed())
+        return;
       ws->send(image);
       std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+  }
+}
+
+void Worker::cameraFile()
+{
+  auto cap = cv::VideoCapture(launchStr, cv::CAP_GSTREAMER);
+  int frame_width = cap.get(cv::CAP_PROP_FRAME_WIDTH);
+  int frame_height = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+  cv::VideoWriter writeFile("./Video/" + fileName + ".avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), 20, cv::Size(frame_width, frame_height));
+  if (cap.isOpened())
+  {
+    while (true)
+    {
+      if (stopThread)
+        return;
+
+      cv::Mat frame;
+      cap >> frame;
+
+      if (!frame.empty())
+        writeFile.write(frame);
     }
   }
 }

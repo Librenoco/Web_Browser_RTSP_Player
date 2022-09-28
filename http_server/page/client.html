@@ -1,0 +1,32 @@
+  let sockets = [];
+  let O = 4;
+  for(let i = 1; i < O; i++)
+  {
+    sockets.push(new WebSocket("ws://" + ip + "/" + i));
+    sockets[i - 1].binaryType = "arraybuffer";
+    sockets[i - 1].onmessage = function (event) {
+      document.getElementById("ItemPreview" + i).src = "data:image/jpeg;base64," + event.data;
+    };
+  }
+
+  window.addEventListener("beforeunload", function (event) {
+    for(let i = 1; i < O; i++)
+      sockets[i - 1].send("closing");
+  });
+
+</script>
+
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+</head>
+
+<body>
+  <img id="ItemPreview1" src="" style="border:5px solid black" />
+  <img id="ItemPreview2" src="" style="border:5px solid rgb(236, 3, 3)" />
+  <img id="ItemPreview3" src="" style="border:5px solid rgb(197, 3, 236)" />
+  <img id="ItemPreview4" src="" style="border:5px solid black" />
+</body>
+
+</html>
