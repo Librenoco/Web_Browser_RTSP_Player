@@ -12,6 +12,9 @@ apt-get install -y cmake
 apt-get install -y build-essential
 
 # Блок установки основных библиотек
+# 0) Boost
+apt-get install -y libboost-all-dev
+
 # 1) Gstreamer
 apt-get install -y gstreamer1.0*
 apt-get install -y ubuntu-restricted-extras
@@ -49,3 +52,8 @@ cd "$myPwd"
 git clone https://github.com/Librenoco/Web_Browser_RTSP_Player.git
 cd Web_Browser_RTSP_Player/server/
 make
+make clean
+cd "$myPwd"
+cd Web_Browser_RTSP_Player/http_server/
+make
+make clean
